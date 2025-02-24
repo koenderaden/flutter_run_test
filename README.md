@@ -49,4 +49,4 @@ Contributions are welcome! Feel free to submit a pull request or open an issue f
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
 
 ## Contact
-For questions or comments, please contact [your.email@example.com](mailto:your.email@example.com).
+For questions or comments, please contact [koenderaden@gmail.com](mailto:koenderaden@gmail.com).
