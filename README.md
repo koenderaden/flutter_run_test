@@ -1,52 +1,57 @@
-# Step Counter Test App
+# FitQuest Test App
 
 ## Overview
-This Flutter app is a test application designed to demonstrate various proof of concepts (POCs), with a focus on step counting functionality. The app provides a simple interface to test and evaluate the operation of the step counter.
+The FitQuest Test App is a development-focused application designed to serve as a testing ground for various proof of concepts (POCs) related to the upcoming FitQuest app. The primary focus is currently on step counting, but the test screen allows developers to experiment with multiple features that will be integrated into the final product.
+
+⚠️ **Currently, the app is only available for Android. iPhone support is coming soon!**
 
 ## Features
-- **Step Counter:** Counts the number of steps taken by the user using the Pedometer package.
-- **Test Screen:** A basic interface for testing the step counter and other functionalities that may be added in the future.
+- **Test Screen**: The app opens directly to a test interface where developers can experiment with different functionalities.
+- **Step Counter**: Uses the Pedometer package to count steps and evaluate step-tracking accuracy.
+- **Future Expansion**: The test app will be updated with additional POCs as development progresses.
 
 ## Technologies
-- **Flutter:** For cross-platform mobile development.
-- **Dart:** The programming language used for the app.
-- **Pedometer Package:** For collecting step data.
-- **Permission Handler:** For managing user permissions.
+- **Flutter**: Cross-platform mobile development framework.
+- **Dart**: The programming language used for the app.
+- **Pedometer Package**: Used for step tracking.
+- **Permission Handler**: Manages user permissions.
 
 ## Installation
-Follow these steps to run the app locally:
+To run the app locally, follow these steps:
 
-1. **Clone the repository:**
+1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/step_counter_test_app.git
-   cd step_counter_test_app
+   git clone https://github.com/koenderaden/flutter_run_test.git
+   cd flutter_run_test
    ```
 
-2. **Install the dependencies:**
+2. Install dependencies:
    ```bash
    flutter pub get
    ```
 
-3. **Run the app:**
+3. Run the app:
    ```bash
    flutter run
    ```
 
+## 📱 Platform Availability:
+- ✅ **Android** – The app currently works on Android devices.
+- 🚧 **iPhone (iOS)** – Coming soon! Future updates will include iOS support.
+
 ## Usage
-- Open the app on your mobile device or emulator.
-- Navigate to the test screen to test the step counter functionality.
-- Follow the on-screen instructions to evaluate the operation of the step counter.
+- Open the app on your Android device or emulator.
+- The test screen provides access to different functionalities for evaluation.
+- Developers can interact with the step counter and other experimental features.
+- Feedback and bug reports can be submitted for improvements.
 
 ## Future Features
-- Integration of social features, such as sharing steps with friends.
-- Improved user interface and user experience.
-- Addition of more POCs for other functionalities.
-
-## Contributions
-Contributions are welcome! Feel free to submit a pull request or open an issue for suggestions or improvements.
+- iOS support.
+- Connection between two devices.
+- Spectral sound integration.
 
 ## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
+This project is licensed under the MIT License. See the LICENSE file for more information.
 
 ## Contact
-For questions or comments, please contact [your.email@example.com](mailto:your.email@example.com).
+For questions or comments, please contact [koenderaden@gmail.com](mailto:koenderaden@gmail.com).
