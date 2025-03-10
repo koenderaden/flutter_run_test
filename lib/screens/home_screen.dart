@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'walking_session_screen.dart';
 import '../models/user.dart';
 import '../utils/user_database.dart';
+import '../utils/app_colors.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -9,29 +10,29 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Test Screen Flutter Run App',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: AppColors.textWhite,
           ),
         ),
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.background,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Basic Tests:', style: TextStyle(fontSize: 16)),
+            const Text('Basic Tests:', style: TextStyle(fontSize: 16, color: AppColors.textWhite)),
             const SizedBox(height: 8),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.accentBlue,
+                foregroundColor: AppColors.textWhite,
               ),
               onPressed: () => Navigator.push(
                 context,
@@ -42,12 +43,12 @@ class HomeScreen extends StatelessWidget {
               child: const Text('Test Basic Counter'),
             ),
             const SizedBox(height: 16),
-            const Text('Friend Tests:', style: TextStyle(fontSize: 16)),
+            const Text('Friend Tests:', style: TextStyle(fontSize: 16, color: AppColors.textWhite)),
             const SizedBox(height: 8),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.accentGreen,
+                foregroundColor: AppColors.textWhite,
               ),
               onPressed: () => Navigator.push(
                 context,
