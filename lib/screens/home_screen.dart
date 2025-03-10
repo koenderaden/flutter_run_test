@@ -52,7 +52,9 @@ class HomeScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => WalkingSession(
-                    friend: onlineUsers['emma123'],
+                    sessionId: 'some_unique_session_id',
+                    user: onlineUsers['emma123'],
+                    friend: onlineUsers['friend_id'],
                   ),
                 ),
               ),

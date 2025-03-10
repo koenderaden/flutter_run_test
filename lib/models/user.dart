@@ -1,10 +1,12 @@
 class User {
-  final String username;
+  final String id;
+  final String name;
   int steps;
   bool isOnline;
 
   User({
-    required this.username,
+    required this.id,
+    required this.name,
     this.steps = 0,
     this.isOnline = true,
   });
