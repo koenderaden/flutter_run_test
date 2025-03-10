@@ -3,6 +3,7 @@ import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import '../models/user.dart';
+import '../utils/app_colors.dart';
 
 class WalkingSession extends StatefulWidget {
   final User? friend;
@@ -90,14 +91,14 @@ class _WalkingSessionState extends State<WalkingSession> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: AppColors.textWhite),
         title: Text(
           widget.friend == null ? 'My Steps' : 'Walking Together',
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppColors.textWhite),
         ),
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.background,
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -106,13 +107,13 @@ class _WalkingSessionState extends State<WalkingSession> {
           children: [
             Text(
               'STATUS: $_status',
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppColors.textWhite),
             ),
             const SizedBox(height: 30),
             Text(
               'MY STEPS: $_steps',
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.textWhite,
                 fontSize: 24,
               ),
             ),
@@ -121,7 +122,7 @@ class _WalkingSessionState extends State<WalkingSession> {
               Text(
                 'FRIEND STEPS: ${widget.friend!.steps}',
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textWhite,
                   fontSize: 24,
                 ),
               ),
@@ -129,13 +130,13 @@ class _WalkingSessionState extends State<WalkingSession> {
             const SizedBox(height: 30),
             const Text(
               'GOAL: 1000 STEPS',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: AppColors.textWhite),
             ),
             const SizedBox(height: 15),
             LinearProgressIndicator(
               value: _steps / 1000,
               backgroundColor: Colors.grey,
-              color: Colors.white,
+              color: AppColors.accentGreen,
             ),
           ],
         ),
