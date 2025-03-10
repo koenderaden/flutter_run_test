@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../models/user.dart';
 
 class WalkingSession extends StatefulWidget {
   final User? friend;
-  final String sessionId;
-  final User user;
-  const WalkingSession({super.key, this.friend, required this.sessionId, required this.user});
+  const WalkingSession({super.key, this.friend});
 
   @override
   State<WalkingSession> createState() => _WalkingSessionState();
@@ -26,7 +23,28 @@ class _WalkingSessionState extends State<WalkingSession> {
   void initState() {
     super.initState();
     initPlatformState();
-    _listenToFirestore();
+    if (widget.friend != null) {
+      _startFriendSimulation();
+    }
+  }
+
+  void _startFriendSimulation() {
+    _friendStepsSimulator = Timer.periodic(
+      const Duration(seconds: 2), 
+      (timer) {
+        if (mounted && widget.friend != null) {
+          setState(() {
+            widget.friend!.steps += 2;
+          });
+        }
+      }
+    );
+  }
+
+  @override
+  void dispose() {
+    _friendStepsSimulator?.cancel();
+    super.dispose();
   }
 
   void initPlatformState() async {
@@ -42,11 +60,12 @@ class _WalkingSessionState extends State<WalkingSession> {
                 }
                 
                 if (event.steps > _lastStepCount!) {
-                  _steps += event.steps - _lastStepCount!;
-                  _updateStepsInFirestore();
+                  _steps += 1;
                 }
                 _lastStepCount = event.steps;
                 _status = 'Counter working';
+                
+                print('Event steps: ${event.steps}, Last count: $_lastStepCount, Total steps: $_steps');
               });
             }
           },
@@ -68,98 +87,58 @@ class _WalkingSessionState extends State<WalkingSession> {
     }
   }
 
-  void _updateStepsInFirestore() {
-    FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).update({
-      'users.${widget.user.id}.steps': _steps,
-    });
-  }
-
-  Stream<DocumentSnapshot> _listenToFirestore() {
-    return FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).snapshots();
-  }
-
-  void _inviteFriend(String friendId) {
-    FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).update({
-      'users.$friendId': {'steps': 0},
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Walking Together', style: TextStyle(color: Colors.white)),
+        title: Text(
+          widget.friend == null ? 'My Steps' : 'Walking Together',
+          style: const TextStyle(color: Colors.white),
+        ),
         backgroundColor: Colors.black,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) {
-                  TextEditingController friendController = TextEditingController();
-                  return AlertDialog(
-                    title: const Text("Invite a Friend"),
-                    content: TextField(
-                      controller: friendController,
-                      decoration: const InputDecoration(hintText: "Enter Friend ID"),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("Cancel"),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          _inviteFriend(friendController.text);
-                          Navigator.pop(context);
-                        },
-                        child: const Text("Invite"),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          )
-        ],
       ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: _listenToFirestore(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          var data = snapshot.data!.data() as Map<String, dynamic>?;
-          int friendSteps = data?['users'][widget.friend?.id]['steps'] ?? 0;
-          int totalSteps = _steps + friendSteps;
-
-          return Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('STATUS: $_status', style: const TextStyle(color: Colors.white)),
-                const SizedBox(height: 30),
-                Text('MY STEPS: $_steps', style: const TextStyle(color: Colors.white, fontSize: 24)),
-                const SizedBox(height: 30),
-                Text('FRIEND STEPS: $friendSteps', style: const TextStyle(color: Colors.white, fontSize: 24)),
-                const SizedBox(height: 30),
-                Text('TOTAL STEPS: $totalSteps', style: const TextStyle(color: Colors.white, fontSize: 24)),
-                const SizedBox(height: 30),
-                const Text('GOAL: 1000 STEPS', style: TextStyle(color: Colors.white)),
-                const SizedBox(height: 15),
-                LinearProgressIndicator(
-                  value: totalSteps / 1000,
-                  backgroundColor: Colors.grey,
-                  color: Colors.white,
-                ),
-              ],
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'STATUS: $_status',
+              style: const TextStyle(color: Colors.white),
             ),
-          );
-        },
+            const SizedBox(height: 30),
+            Text(
+              'MY STEPS: $_steps',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+              ),
+            ),
+            if (widget.friend != null) ...[
+              const SizedBox(height: 30),
+              Text(
+                'FRIEND STEPS: ${widget.friend!.steps}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ],
+            const SizedBox(height: 30),
+            const Text(
+              'GOAL: 1000 STEPS',
+              style: TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 15),
+            LinearProgressIndicator(
+              value: _steps / 1000,
+              backgroundColor: Colors.grey,
+              color: Colors.white,
+            ),
+          ],
+        ),
       ),
     );
   }

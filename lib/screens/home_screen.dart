@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'walking_session_screen.dart';
 import '../models/user.dart';
 import '../utils/user_database.dart';
-import 'test_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -36,7 +35,9 @@ class HomeScreen extends StatelessWidget {
               ),
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const WalkingSession()),
+                MaterialPageRoute(
+                  builder: (context) => const WalkingSession(),
+                ),
               ),
               child: const Text('Test Basic Counter'),
             ),
@@ -51,11 +52,7 @@ class HomeScreen extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => WalkingSession(
-                    sessionId: 'some_unique_session_id',
-                    user: onlineUsers['emma123'],
-                    friend: onlineUsers['friend_id'],
-                  ),
+                  builder: (context) => const WalkingSession(),
                 ),
               ),
               child: const Text('Test With Friend'),
@@ -65,4 +62,4 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-} 
+}
