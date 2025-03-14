@@ -31,14 +31,14 @@ class _WalkingSessionState extends State<WalkingSession> {
 
   void _startFriendSimulation() {
     _friendStepsSimulator = Timer.periodic(
-      const Duration(seconds: 2), 
+      const Duration(seconds: 2),
       (timer) {
         if (mounted && widget.friend != null) {
           setState(() {
             widget.friend!.steps += 2;
           });
         }
-      }
+      },
     );
   }
 
@@ -59,14 +59,12 @@ class _WalkingSessionState extends State<WalkingSession> {
                 if (_lastStepCount == null) {
                   _lastStepCount = event.steps;
                 }
-                
+
                 if (event.steps > _lastStepCount!) {
                   _steps += 1;
                 }
                 _lastStepCount = event.steps;
                 _status = 'Counter working';
-                
-                print('Event steps: ${event.steps}, Last count: $_lastStepCount, Total steps: $_steps');
               });
             }
           },
@@ -93,54 +91,145 @@ class _WalkingSessionState extends State<WalkingSession> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: AppColors.textWhite),
-        title: Text(
-          widget.friend == null ? 'My Steps' : 'Walking Together',
-          style: const TextStyle(color: AppColors.textWhite),
-        ),
+        elevation: 0,
         backgroundColor: AppColors.background,
+        centerTitle: true,
+        title: Image.asset(
+          'assets/images/fitquest_logo.png',
+          height: 40,
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'STATUS: $_status',
-              style: const TextStyle(color: AppColors.textWhite),
-            ),
+            _statusWidget(),
             const SizedBox(height: 30),
-            Text(
-              'MY STEPS: $_steps',
-              style: const TextStyle(
-                color: AppColors.textWhite,
-                fontSize: 24,
-              ),
-            ),
-            if (widget.friend != null) ...[
-              const SizedBox(height: 30),
-              Text(
-                'FRIEND STEPS: ${widget.friend!.steps}',
-                style: const TextStyle(
-                  color: AppColors.textWhite,
-                  fontSize: 24,
-                ),
-              ),
-            ],
+            _stepsInfo(),
+            if (widget.friend != null) _friendStepsInfo(),
             const SizedBox(height: 30),
-            const Text(
-              'GOAL: 1000 STEPS',
-              style: TextStyle(color: AppColors.textWhite),
-            ),
-            const SizedBox(height: 15),
-            LinearProgressIndicator(
-              value: _steps / 1000,
-              backgroundColor: Colors.grey,
-              color: AppColors.accentGreen,
-            ),
+            _goalProgress(),
           ],
         ),
       ),
     );
   }
+
+  Widget _statusWidget() => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.accentBlue.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: AppColors.accentGreen, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'STATUS: $_status',
+                style: TextStyle(color: AppColors.textWhite, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _stepsInfo() => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.accentBlue.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Jouw Stappen',
+              style: TextStyle(
+                color: AppColors.textWhite,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '$_steps',
+              style: TextStyle(
+                color: AppColors.accentGreen,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _friendStepsInfo() => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.accentBlue.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Vriend Stappen',
+              style: TextStyle(
+                color: AppColors.textWhite,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${widget.friend!.steps}',
+              style: TextStyle(
+                color: AppColors.accentGreen,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _goalProgress() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Doel: 1000 Stappen',
+            style: TextStyle(color: AppColors.textWhite, fontSize: 16),
+          ),
+          const SizedBox(height: 10),
+          Stack(
+            children: [
+              Container(
+                height: 8,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade800,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+              Container(
+                height: 8,
+                width: MediaQuery.of(context).size.width * 0.75 * (_steps / 1000),
+                decoration: BoxDecoration(
+                  color: AppColors.accentGreen,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '$_steps / 1000',
+              style: TextStyle(color: AppColors.textWhite, fontSize: 14),
+            ),
+          ),
+        ],
+      );
 }
