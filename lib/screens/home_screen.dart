@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Welkom bij FitQuest, dé app om samen hard te lopen!',
+              'Samen hardlopen, samen motiveren!',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textWhite, fontSize: 16),
             ),
@@ -119,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Goedemorgen sporter!',
+                    'Goedemorgen!',
                     style: TextStyle(
                       color: AppColors.textWhite,
                       fontSize: 20,
@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 2,
-        childAspectRatio: 1.6,
+        childAspectRatio: 1.0,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
         children: [
