@@ -3,6 +3,9 @@ import 'walking_session_screen.dart';
 import '../utils/app_colors.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
+import 'dart:math';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,6 +16,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String weatherInfo = 'Weer laden...';
+  final TextEditingController sessionController = TextEditingController();
+  String sessionId = '';
 
   @override
   void initState() {
@@ -30,14 +35,80 @@ class _HomeScreenState extends State<HomeScreen> {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       setState(() {
-        weatherInfo =
-            "${data['main']['temp'].round()}°C ${data['weather'][0]['main']}";
+        weatherInfo = "${data['main']['temp'].round()}°C ${data['weather'][0]['main']}";
       });
     } else {
       setState(() {
         weatherInfo = 'Weer niet beschikbaar';
       });
     }
+  }
+
+  // New session popup function
+  void showSessionPopup(String sessionId) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Text(
+            "Sessie Aangemaakt",
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Jouw sessie-ID:",
+                style: TextStyle(color: Colors.white, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              SelectableText(
+                sessionId,
+                style: TextStyle(
+                  color: AppColors.accentGreen,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "⚠️ Deel deze code met je buddy. Alleen je buddy moet deze code invoeren om te joinen.",
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: sessionId));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Sessie-ID gekopieerd! Deel dit met je buddy.")),
+                );
+              },
+              child: Text("Kopiëren"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WalkingSession(sessionId: sessionId, userId: "host"),
+                  ),
+                );
+              },
+              child: Text("Ga verder als Host"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -59,13 +130,15 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Samen hardlopen, samen motiveren!',
+              'Welkom bij FitQuest, dé app om samen hard te lopen!',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textWhite, fontSize: 16),
             ),
             const SizedBox(height: 20),
             _welcomeWidget(),
             const SizedBox(height: 30),
+
+            // Updated button with new popup
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accentGreen,
@@ -77,29 +150,91 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               icon: const Icon(Icons.directions_run),
               label: const Text('Run Together', style: TextStyle(fontSize: 18)),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const WalkingSession()),
-              ),
+              onPressed: () async {
+                String newSessionId = await createSession("host");
+                // Use the new popup function
+                showSessionPopup(newSessionId);
+              },
             ),
+            const SizedBox(height: 10),
+
+            // Toon en kopieer het sessie-ID
+            if (sessionId.isNotEmpty)
+              Column(
+                children: [
+                  Text(
+                    "Jouw Sessie-ID: $sessionId",
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: sessionId));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Sessie-ID gekopieerd!")),
+                      );
+                    },
+                    child: Text("Kopieer Sessie-ID"),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WalkingSession(sessionId: sessionId, userId: "host"),
+                        ),
+                      );
+                    },
+                    child: Text("Start Sessie"),
+                  ),
+                ],
+              ),
+
+            const SizedBox(height: 30),
+            _sectionTitle('Sessie Joinen'),
+
+            // Veld om een sessie te joinen
+            TextField(
+              controller: sessionController,
+              decoration: InputDecoration(
+                labelText: 'Voer Sessie-ID in',
+                labelStyle: TextStyle(color: AppColors.textWhite),
+                filled: true,
+                fillColor: AppColors.accentBlue.withOpacity(0.2),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              style: TextStyle(color: AppColors.textWhite),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accentGreen,
+                foregroundColor: AppColors.background,
+              ),
+              onPressed: () {
+                String enteredSessionId = sessionController.text;
+                if (enteredSessionId.isNotEmpty) {
+                  joinSession(enteredSessionId, "buddy");
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => WalkingSession(sessionId: enteredSessionId, userId: "buddy"),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Join Sessie'),
+            ),
+
             const SizedBox(height: 30),
             _sectionTitle('Snelle Navigatie'),
-            const SizedBox(height: 15),
             _quickNavGrid(),
             const SizedBox(height: 30),
+
             _sectionTitle('Jouw Statistieken'),
-            const SizedBox(height: 15),
             _statisticsCard(),
-            const SizedBox(height: 30),
-            _sectionTitle('Recente Buddy Runs'),
-            const SizedBox(height: 15),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Je hebt nog geen runs gedaan.',
-                style: TextStyle(color: AppColors.textWhite, fontSize: 14),
-              ),
-            ),
           ],
         ),
       ),
@@ -112,52 +247,19 @@ class _HomeScreenState extends State<HomeScreen> {
           color: AppColors.accentBlue.withOpacity(0.2),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
+        child: Column(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Goedemorgen!',
-                    style: TextStyle(
-                      color: AppColors.textWhite,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Vandaag is het een geweldige dag om te trainen!',
-                    style: TextStyle(color: AppColors.textWhite, fontSize: 14),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Icon(Icons.wb_sunny, color: AppColors.accentGreen, size: 20),
-                      const SizedBox(width: 5),
-                      Text(weatherInfo,
-                          style: TextStyle(color: AppColors.textWhite, fontSize: 18)),
-                    ],
-                  ),
-                ],
+            Text(
+              'Goedemorgen sporter!',
+              style: TextStyle(
+                color: AppColors.textWhite,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 10),
-            Icon(Icons.directions_run, color: AppColors.accentGreen, size: 40),
+            const SizedBox(height: 5),
+            Text(weatherInfo, style: TextStyle(color: AppColors.textWhite, fontSize: 18)),
           ],
-        ),
-      );
-
-  Widget _sectionTitle(String title) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
         ),
       );
 
@@ -165,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 2,
-        childAspectRatio: 1.0,
+        childAspectRatio: 1.6,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
         children: [
@@ -176,25 +278,19 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
 
-  Widget _navCard(IconData icon, String title, String subtitle) => InkWell(
-        onTap: () {},
-        child: Container(
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.accentGreen),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: AppColors.accentGreen, size: 30),
-              const SizedBox(height: 8),
-              Text(title, style: TextStyle(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 5),
-              Text(subtitle, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textWhite.withOpacity(0.7), fontSize: 12)),
-            ],
-          ),
+  Widget _navCard(IconData icon, String title, String subtitle) => Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.accentGreen),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AppColors.accentGreen, size: 30),
+            Text(title, style: TextStyle(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
         ),
       );
 
@@ -238,4 +334,41 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       );
+
+  Widget _sectionTitle(String title) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: AppColors.textWhite,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+
+  Future<String> createSession(String hostId) async {
+    // Genereer een 6-cijferig sessionId
+    String sessionId = (100000 + Random().nextInt(900000)).toString();
+
+    // Maak een document aan met sessionId als ID
+    final sessionRef = FirebaseFirestore.instance.collection('walking_sessions').doc(sessionId);
+
+    await sessionRef.set({
+      'sessionId': sessionId, // Behoud de sessionId als veld in Firestore
+      'hostId': hostId,
+      'buddyId': "",
+      'hostSteps': 0,
+      'buddySteps': 0,
+    });
+
+    print("Nieuwe sessie aangemaakt met ID: $sessionId");
+    return sessionId;
+  }
+
+  Future<void> joinSession(String sessionId, String buddyId) async {
+    await FirebaseFirestore.instance.collection('walking_sessions').doc(sessionId).update({
+      'buddyId': buddyId, // Zorg ervoor dat dit een string blijft
+    });
+  }
 }
