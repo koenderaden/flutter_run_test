@@ -47,5 +47,15 @@
 	<true/>
 	<key>NSMotionUsageDescription</key>
 	<string>This application tracks your steps</string>
+	<!-- Add these new keys for HealthKit -->
+	<key>NSHealthShareUsageDescription</key>
+	<string>We need access to your health data to count and track your steps</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>We need permission to save your step data to Health</string>
+	<!-- For background processing if needed -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>processing</string>
+	</array>
 </dict>
 </plist>
