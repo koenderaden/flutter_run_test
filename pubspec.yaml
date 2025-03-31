@@ -62,6 +62,7 @@ flutter:
     - assets/images/fitquest_logo.png
     - assets/images/running.png
     - assets/images/running2.png
+    - assets/images/map.png
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

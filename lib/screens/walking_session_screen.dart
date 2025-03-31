@@ -18,10 +18,8 @@ class _WalkingSessionState extends State<WalkingSession> {
   late Stream<StepCount> _stepCountStream;
   int _steps = 0;
   int? _lastStepCount;
-  String _status = 'Waiting for step counter...';
-  bool sessionExists = false;
+  String _status = 'Wachten op stappenteller...';
   int stepGoal = 5000;
-  bool goalSet = false;
   final TextEditingController goalController = TextEditingController();
 
   @override
@@ -60,7 +58,7 @@ class _WalkingSessionState extends State<WalkingSession> {
       }
     }, onError: (error) {
       setState(() {
-        _status = 'Error: $error';
+        _status = 'Fout: $error';
       });
     });
   }
@@ -72,25 +70,7 @@ class _WalkingSessionState extends State<WalkingSession> {
   }
 
   Future<void> fetchSessionData() async {
-    try {
-      DocumentSnapshot doc = await FirebaseFirestore.instance
-          .collection('walking_sessions')
-          .doc(widget.sessionId)
-          .get();
-
-      if (!doc.exists || doc.data() == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Fout: Sessie niet gevonden!")),
-        );
-        return;
-      }
-
-      setState(() {
-        sessionExists = true;
-      });
-    } catch (e) {
-      print("Fout bij ophalen van sessiegegevens: $e");
-    }
+    FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).get();
   }
 
   void setStepGoal() {
@@ -98,7 +78,6 @@ class _WalkingSessionState extends State<WalkingSession> {
     if (newGoal != null && newGoal > 0) {
       setState(() {
         stepGoal = newGoal;
-        goalSet = true;
         goalController.clear();
       });
     }
@@ -137,76 +116,70 @@ class _WalkingSessionState extends State<WalkingSession> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: AppColors.background,
-        centerTitle: true,
-        title: Image.asset(
-          'assets/images/fitquest_logo.png',
-          height: 40,
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _statusWidget(),
-            const SizedBox(height: 30),
-            _goalDisplay(),
-            const SizedBox(height: 30),
-            stepsDisplay(),
+            // MAP
+            ClipRRect(
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
+              ),
+              child: Image.asset(
+                'assets/images/map.png',
+                height: 300,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+
+            // SCROLLBARE CONTENT
+            Expanded(
+              child: SingleChildScrollView(
+                physics: BouncingScrollPhysics(),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(32),
+                      topRight: Radius.circular(32),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      stepsDisplay(),
+                      const SizedBox(height: 20),
+                      _goalDisplay(),
+                      const SizedBox(height: 10),
+                      _statusWidget(),
+                      const SizedBox(height: 30),
+
+                      // CONTROLS
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _circleButton(Icons.timer, Colors.grey.shade800),
+                          _circleButton(Icons.pause, AppColors.accentGreen),
+                          _circleButton(Icons.stop, Colors.grey.shade800),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _statusWidget() => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.accentBlue.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.info_outline, color: AppColors.accentGreen, size: 28),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'STATUS: $_status',
-                style: TextStyle(color: AppColors.textWhite, fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _goalDisplay() => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.accentGreen.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              'Stapdoel: $stepGoal stappen',
-              style: TextStyle(
-                color: AppColors.textWhite,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: openGoalSettings,
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.accentGreen),
-              child: Text("Stapdoel Wijzigen"),
-            ),
-          ],
-        ),
-      );
+  // STEP PROGRESS
 
   Widget stepsDisplay() => StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).snapshots(),
@@ -216,60 +189,95 @@ class _WalkingSessionState extends State<WalkingSession> {
           int hostSteps = data['hostSteps'] ?? 0;
           int buddySteps = data['buddySteps'] ?? 0;
           int totalSteps = hostSteps + buddySteps;
-
           double progress = (totalSteps / stepGoal).clamp(0.0, 1.0);
-          int stepsRemaining = stepGoal - totalSteps;
-          stepsRemaining = stepsRemaining < 0 ? 0 : stepsRemaining;
 
-          Color progressColor;
-          if (progress >= 0.8) {
-            progressColor = Colors.red;
-          } else if (progress >= 0.5) {
-            progressColor = Colors.orange;
-          } else {
-            progressColor = AppColors.accentGreen;
-          }
+          Color progressColor = progress >= 0.8
+              ? Colors.red
+              : progress >= 0.5
+                  ? Colors.orange
+                  : AppColors.accentGreen;
 
           return Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _stepCard("Jouw Stappen", hostSteps, Icons.directions_walk),
-                  _stepCard("Buddy Stappen", buddySteps, Icons.group),
+                  _stepCount("Jij", hostSteps, Icons.person),
+                  _stepCount("Buddy", buddySteps, Icons.person_outline),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: progress,
-                minHeight: 12,
+                minHeight: 10,
                 backgroundColor: Colors.grey[800],
                 color: progressColor,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
                 '$totalSteps / $stepGoal stappen gezet',
-                style: TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(color: Colors.white, fontSize: 14),
               ),
             ],
           );
         },
       );
 
-  Widget _stepCard(String title, int steps, IconData icon) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.accentBlue.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: AppColors.accentGreen, size: 30),
-            const SizedBox(height: 10),
-            Text(title, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 5),
-            Text('$steps', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-          ],
-        ),
+  Widget _stepCount(String title, int count, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: AppColors.accentGreen, size: 28),
+        const SizedBox(height: 6),
+        Text(title, style: TextStyle(color: Colors.white, fontSize: 14)),
+        Text('$count', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  // STAPDOEL
+
+  Widget _goalDisplay() => Column(
+        children: [
+          Text(
+            'Stapdoel: $stepGoal stappen',
+            style: TextStyle(
+              color: AppColors.textWhite,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          TextButton(
+            onPressed: openGoalSettings,
+            child: Text("Stapdoel wijzigen", style: TextStyle(color: AppColors.accentGreen)),
+          ),
+        ],
       );
+
+  // STATUS
+
+  Widget _statusWidget() => Row(
+        children: [
+          Icon(Icons.info_outline, color: AppColors.accentGreen, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'STATUS: $_status',
+              style: TextStyle(color: AppColors.textWhite, fontSize: 14),
+            ),
+          ),
+        ],
+      );
+
+  // KNOPPEN
+
+  Widget _circleButton(IconData icon, Color color) {
+    return Container(
+      padding: EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: AppColors.textWhite, size: 28),
+    );
+  }
 }
