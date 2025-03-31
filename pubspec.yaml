@@ -41,6 +41,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   permission_handler: ^11.3.1
   flutter_flow_chart: ^3.2.1
+  audioplayers: ^6.4.0
 
 dev_dependencies:
   flutter_test:
@@ -63,6 +64,9 @@ flutter:
     - assets/images/running.png
     - assets/images/running2.png
     - assets/images/map.png
+    - assets/audio/comeon.mp3
+    - assets/audio/halfway.mp3
+    - assets/audio/takeiteasy.mp3
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
