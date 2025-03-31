@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../utils/app_colors.dart';
 
 class WalkingSession extends StatefulWidget {
@@ -15,12 +17,28 @@ class WalkingSession extends StatefulWidget {
 }
 
 class _WalkingSessionState extends State<WalkingSession> {
-  late Stream<StepCount> _stepCountStream;
   int _steps = 0;
   int? _lastStepCount;
-  String _status = 'Wachten op stappenteller...';
+  String _status = 'Sessie nog niet gestart';
   int stepGoal = 5000;
   final TextEditingController goalController = TextEditingController();
+
+  bool _audioOn = false;
+  bool _sessionStarted = false;
+  bool _sessionPaused = false;
+
+  late Stream<StepCount> _stepCountStream;
+  late StreamSubscription<StepCount> _stepSubscription;
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  Timer? _audioTimer;
+  int _audioStep = 0;
+
+  final List<String> _audioFiles = [
+    'assets/audio/comeon.mp3',
+    'assets/audio/halfway.mp3',
+    'assets/audio/takeiteasy.mp3',
+  ];
 
   @override
   void initState() {
@@ -30,19 +48,13 @@ class _WalkingSessionState extends State<WalkingSession> {
   }
 
   void requestPermission() async {
-    if (await Permission.activityRecognition.request().isGranted) {
-      initPedometer();
-    } else {
-      setState(() {
-        _status = 'Geen permissie!';
-      });
-    }
+    await Permission.activityRecognition.request();
   }
 
   void initPedometer() {
     _stepCountStream = Pedometer.stepCountStream;
-    _stepCountStream.listen((StepCount event) {
-      if (mounted) {
+    _stepSubscription = _stepCountStream.listen((StepCount event) {
+      if (mounted && !_sessionPaused) {
         setState(() {
           if (_lastStepCount == null) {
             _lastStepCount = event.steps;
@@ -51,8 +63,7 @@ class _WalkingSessionState extends State<WalkingSession> {
             _steps += event.steps - _lastStepCount!;
           }
           _lastStepCount = event.steps;
-          _status = 'Teller werkt';
-
+          _status = 'Teller actief';
           updateStepsInFirestore();
         });
       }
@@ -70,7 +81,7 @@ class _WalkingSessionState extends State<WalkingSession> {
   }
 
   Future<void> fetchSessionData() async {
-    FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).get();
+    await FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).get();
   }
 
   void setStepGoal() {
@@ -88,14 +99,21 @@ class _WalkingSessionState extends State<WalkingSession> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Stapdoel Instellen"),
+          backgroundColor: const Color(0xFF141421),
+          title: Text("Stapdoel Instellen", style: TextStyle(color: Colors.white)),
           content: TextField(
             controller: goalController,
             keyboardType: TextInputType.number,
+            style: TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: "Voer een nieuw stapdoel in",
-              hintStyle: TextStyle(color: Colors.grey),
-              border: OutlineInputBorder(),
+              hintText: "Bijv. 8000",
+              hintStyle: TextStyle(color: Colors.white54),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: AppColors.accentGreen),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: AppColors.accentGreen, width: 2),
+              ),
             ),
           ),
           actions: [
@@ -104,7 +122,7 @@ class _WalkingSessionState extends State<WalkingSession> {
                 setStepGoal();
                 Navigator.pop(context);
               },
-              child: Text("Opslaan"),
+              child: Text("Opslaan", style: TextStyle(color: AppColors.accentGreen)),
             ),
           ],
         );
@@ -112,77 +130,168 @@ class _WalkingSessionState extends State<WalkingSession> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // MAP
-            ClipRRect(
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(40),
-                bottomRight: Radius.circular(40),
-              ),
-              child: Image.asset(
-                'assets/images/map.png',
-                height: 300,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-
-            // SCROLLBARE CONTENT
-            Expanded(
-              child: SingleChildScrollView(
-                physics: BouncingScrollPhysics(),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
-                    ),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      stepsDisplay(),
-                      const SizedBox(height: 20),
-                      _goalDisplay(),
-                      const SizedBox(height: 10),
-                      _statusWidget(),
-                      const SizedBox(height: 30),
-
-                      // CONTROLS
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _circleButton(Icons.timer, Colors.grey.shade800),
-                          _circleButton(Icons.pause, AppColors.accentGreen),
-                          _circleButton(Icons.stop, Colors.grey.shade800),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void startSession() {
+    if (!_sessionStarted) {
+      initPedometer();
+      startAudioLoop();
+      setState(() {
+        _sessionStarted = true;
+        _sessionPaused = false;
+        _status = 'Buddy Run gestart!';
+      });
+    }
   }
 
-  // STEP PROGRESS
+  void pauseSession() {
+    setState(() {
+      _sessionPaused = true;
+      _status = 'Gepauzeerd';
+    });
+  }
+
+  void resumeSession() {
+    setState(() {
+      _sessionPaused = false;
+      _status = 'Hervat!';
+    });
+  }
+
+  void startAudioLoop() {
+    _audioTimer = Timer.periodic(Duration(minutes: 1), (timer) async {
+      if (_audioOn && !_sessionPaused) {
+        final file = _audioFiles[_audioStep % _audioFiles.length];
+        await _audioPlayer.play(AssetSource(file.replaceFirst('assets/', '')));
+        _audioStep++;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioTimer?.cancel();
+    _audioPlayer.dispose();
+    _stepSubscription.cancel();
+    super.dispose();
+  }
+
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: const Color(0xFF141421),
+    body: SafeArea(
+      child: Column(
+        children: [
+          // MAP
+          ClipRRect(
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(40),
+              bottomRight: Radius.circular(40),
+            ),
+            child: Image.asset(
+              'assets/images/map.png',
+              height: 280,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          // MAIN CONTENT
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              color: const Color(0xFF141421),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (!_sessionStarted) ...[
+                    Text(
+                      "Buddy Run Sessie",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // AUDIO SWITCH
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Audiobegeleiding", style: TextStyle(color: Colors.white, fontSize: 16)),
+                        Switch(
+                          activeColor: AppColors.accentGreen,
+                          value: _audioOn,
+                          onChanged: (val) {
+                            setState(() {
+                              _audioOn = val;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // STEP GOAL
+                    Text("Stapdoel: $stepGoal stappen",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    TextButton(
+                      onPressed: openGoalSettings,
+                      child: Text("Wijzig doel", style: TextStyle(color: AppColors.accentGreen)),
+                    ),
+                    const SizedBox(height: 20),
+                    // START KNOP
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.play_arrow),
+                        label: Text("Start Buddy Run"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accentGreen,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: startSession,
+                      ),
+                    ),
+                  ],
+
+                  if (_sessionStarted) ...[
+                    const SizedBox(height: 10),
+                    // STEP DATA
+                    stepsDisplay(),
+                    const SizedBox(height: 16),
+                    _statusWidget(),
+                    const SizedBox(height: 20),
+                    // CONTROLS
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _circleButton(Icons.pause, AppColors.accentGreen, pauseSession),
+                        _circleButton(Icons.play_arrow, Colors.white24, resumeSession),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+
 
   Widget stepsDisplay() => StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('walking_sessions')
+            .doc(widget.sessionId)
+            .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return CircularProgressIndicator();
           var data = snapshot.data!.data() as Map<String, dynamic>;
@@ -190,12 +299,6 @@ class _WalkingSessionState extends State<WalkingSession> {
           int buddySteps = data['buddySteps'] ?? 0;
           int totalSteps = hostSteps + buddySteps;
           double progress = (totalSteps / stepGoal).clamp(0.0, 1.0);
-
-          Color progressColor = progress >= 0.8
-              ? Colors.red
-              : progress >= 0.5
-                  ? Colors.orange
-                  : AppColors.accentGreen;
 
           return Column(
             children: [
@@ -210,13 +313,13 @@ class _WalkingSessionState extends State<WalkingSession> {
               LinearProgressIndicator(
                 value: progress,
                 minHeight: 10,
-                backgroundColor: Colors.grey[800],
-                color: progressColor,
+                backgroundColor: Colors.white24,
+                color: AppColors.accentGreen,
               ),
               const SizedBox(height: 8),
               Text(
                 '$totalSteps / $stepGoal stappen gezet',
-                style: TextStyle(color: Colors.white, fontSize: 14),
+                style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ],
           );
@@ -229,31 +332,11 @@ class _WalkingSessionState extends State<WalkingSession> {
         Icon(icon, color: AppColors.accentGreen, size: 28),
         const SizedBox(height: 6),
         Text(title, style: TextStyle(color: Colors.white, fontSize: 14)),
-        Text('$count', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        Text('$count',
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
       ],
     );
   }
-
-  // STAPDOEL
-
-  Widget _goalDisplay() => Column(
-        children: [
-          Text(
-            'Stapdoel: $stepGoal stappen',
-            style: TextStyle(
-              color: AppColors.textWhite,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextButton(
-            onPressed: openGoalSettings,
-            child: Text("Stapdoel wijzigen", style: TextStyle(color: AppColors.accentGreen)),
-          ),
-        ],
-      );
-
-  // STATUS
 
   Widget _statusWidget() => Row(
         children: [
@@ -262,22 +345,23 @@ class _WalkingSessionState extends State<WalkingSession> {
           Expanded(
             child: Text(
               'STATUS: $_status',
-              style: TextStyle(color: AppColors.textWhite, fontSize: 14),
+              style: TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ),
         ],
       );
 
-  // KNOPPEN
-
-  Widget _circleButton(IconData icon, Color color) {
-    return Container(
-      padding: EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
+  Widget _circleButton(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 26),
       ),
-      child: Icon(icon, color: AppColors.textWhite, size: 28),
     );
   }
 }
