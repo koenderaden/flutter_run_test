@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'walking_session_screen.dart';
-import '../utils/app_colors.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
-import 'dart:math';
+import 'walking_session_screen.dart';
+import '../utils/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -17,7 +16,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String weatherInfo = 'Weer laden...';
   final TextEditingController sessionController = TextEditingController();
-  String sessionId = '';
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -30,12 +29,13 @@ class _HomeScreenState extends State<HomeScreen> {
     const city = 'Tilburg,nl';
     final url = Uri.parse(
         'https://api.openweathermap.org/data/2.5/weather?q=$city&appid=$apiKey&units=metric');
-
     final response = await http.get(url);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       setState(() {
-        weatherInfo = "${data['main']['temp'].round()}°C ${data['weather'][0]['main']}";
+        final temp = data['main']['temp'].round();
+        final weatherMain = data['weather'][0]['main'];
+        weatherInfo = "$temp°C | $weatherMain";
       });
     } else {
       setState(() {
@@ -44,315 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void showSessionPopup(String sessionId) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppColors.background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: Text(
-            "Sessie Aangemaakt",
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Jouw sessie-ID:",
-                style: TextStyle(color: Colors.white, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              SelectableText(
-                sessionId,
-                style: TextStyle(
-                  color: AppColors.accentGreen,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                "⚠️ Deel deze code met je buddy. Alleen je buddy moet deze code invoeren om te joinen.",
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: sessionId));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Sessie-ID gekopieerd! Deel dit met je buddy.")),
-                );
-              },
-              child: Text("Kopiëren"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => WalkingSession(sessionId: sessionId, userId: "host"),
-                  ),
-                );
-              },
-              child: Text("Ga verder als Host"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: AppColors.background,
-        centerTitle: true,
-        title: Image.asset(
-          'assets/images/fitquest_logo.png',
-          height: 40,
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Welkom bij FitQuest, dé app om samen hard te lopen!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textWhite, fontSize: 16),
-            ),
-            const SizedBox(height: 20),
-            _welcomeWidget(),
-            const SizedBox(height: 30),
-
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentGreen,
-                foregroundColor: AppColors.background,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.directions_run),
-              label: const Text('Run Together', style: TextStyle(fontSize: 18)),
-              onPressed: () async {
-                String newSessionId = await createSession("host");
-                showSessionPopup(newSessionId);
-              },
-            ),
-            const SizedBox(height: 10),
-
-            if (sessionId.isNotEmpty)
-              Column(
-                children: [
-                  Text(
-                    "Jouw Sessie-ID: $sessionId",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: sessionId));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Sessie-ID gekopieerd!")),
-                      );
-                    },
-                    child: Text("Kopieer Sessie-ID"),
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => WalkingSession(sessionId: sessionId, userId: "host"),
-                        ),
-                      );
-                    },
-                    child: Text("Start Sessie"),
-                  ),
-                ],
-              ),
-
-            const SizedBox(height: 30),
-            _sectionTitle('Sessie Joinen'),
-
-            TextField(
-              controller: sessionController,
-              decoration: InputDecoration(
-                labelText: 'Voer Sessie-ID in',
-                labelStyle: TextStyle(color: AppColors.textWhite),
-                filled: true,
-                fillColor: AppColors.accentBlue, 
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.accentGreen, width: 2),
-                ),
-              ),
-              style: TextStyle(color: AppColors.textWhite),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentGreen,
-                foregroundColor: AppColors.background,
-              ),
-              onPressed: () {
-                String enteredSessionId = sessionController.text;
-                if (enteredSessionId.isNotEmpty) {
-                  joinSession(enteredSessionId, "buddy");
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => WalkingSession(sessionId: enteredSessionId, userId: "buddy"),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Join Sessie'),
-            ),
-
-            const SizedBox(height: 30),
-            _sectionTitle('Snelle Navigatie'),
-            _quickNavGrid(),
-            const SizedBox(height: 30),
-
-            _sectionTitle('Jouw Statistieken'),
-            _statisticsCard(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _welcomeWidget() => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.accentBlue, 
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              'Goedemorgen sporter!',
-              style: TextStyle(
-                color: AppColors.textWhite,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(weatherInfo, style: TextStyle(color: AppColors.textWhite, fontSize: 18)),
-          ],
-        ),
-      );
-
-  Widget _quickNavGrid() => GridView.count(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: 2,
-        childAspectRatio: 1.6,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        children: [
-          _navCard(Icons.people, 'Mijn Buddies', 'Beheer je hardloopmaatjes'),
-          _navCard(Icons.history, 'Geschiedenis', 'Bekijk je eerdere runs'),
-          _navCard(Icons.settings, 'Instellingen', 'Pas je voorkeuren aan'),
-          _navCard(Icons.map, 'Locaties', 'Ontdek hardlooproutes'),
-        ],
-      );
-
-  Widget _navCard(IconData icon, String title, String subtitle) => Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.accentGreen),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: AppColors.accentGreen, size: 30),
-            Text(title, style: TextStyle(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      );
-
-  Widget _statisticsCard() => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.accentBlue,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _statisticColumn('0', 'Runs'),
-                _statisticColumn('0 km', 'Totaal'),
-                _statisticColumn('0:00', 'Gem. Tempo'),
-              ],
-            ),
-          ],
-        ),
-      );
-
-  Widget _statisticColumn(String value, String label) => Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: AppColors.textWhite,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textWhite.withOpacity(0.7),
-              fontSize: 14,
-            ),
-          ),
-        ],
-      );
-
-  Widget _sectionTitle(String title) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      );
-
   Future<String> createSession(String hostId) async {
     String sessionId = (100000 + Random().nextInt(900000)).toString();
-    final sessionRef = FirebaseFirestore.instance.collection('walking_sessions').doc(sessionId);
+    final sessionRef =
+        FirebaseFirestore.instance.collection('walking_sessions').doc(sessionId);
 
     await sessionRef.set({
       'sessionId': sessionId,
@@ -366,8 +61,372 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> joinSession(String sessionId, String buddyId) async {
-    await FirebaseFirestore.instance.collection('walking_sessions').doc(sessionId).update({
-      'buddyId': buddyId,
-    });
+    await FirebaseFirestore.instance
+        .collection('walking_sessions')
+        .doc(sessionId)
+        .update({'buddyId': buddyId});
+  }
+
+  void showSessionPopup(String sessionId) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: AppColors.background,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_outline, color: AppColors.accentGreen, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  "Sessie succesvol aangemaakt!",
+                  style: TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Geef deze code door aan je buddy om samen te starten:",
+                  style: TextStyle(color: Colors.white70, fontSize: 15),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SelectableText(
+                          sessionId,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.accentGreen,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.copy, color: Colors.white70),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: sessionId));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Sessie-ID gekopieerd!")),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.white30),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: sessionId));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Sessie-ID gekopieerd!")),
+                          );
+                        },
+                        child: Text("Kopieer", style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accentGreen,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  WalkingSession(sessionId: sessionId, userId: "host"),
+                            ),
+                          );
+                        },
+                        child: Text("Start als Host"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF141421),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: const Color(0xFF141421),
+        centerTitle: true,
+        title: Image.asset('assets/images/fitquest_logo.png', height: 40),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text('Welkom bij FitQuest!', style: _sectionTitleStyle()),
+          const SizedBox(height: 6),
+          Text(
+            'FitQuest helpt jou om samen met een buddy te wandelen of rennen. Vergelijk stappen, stimuleer elkaar en maak samen progressie!',
+            style: TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: _cardBox(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("📍 Weer in Tilburg", style: _subTitleStyle()),
+                const SizedBox(height: 5),
+                Text(weatherInfo, style: _infoTextStyle()),
+              ],
+            ),
+          ),
+          const SizedBox(height: 30),
+          Text('Samen Rennen', style: _sectionTitleStyle()),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            icon: Icon(Icons.directions_run),
+            label: Text("Run Together"),
+            style: _mainButtonStyle(),
+            onPressed: () async {
+              String newSessionId = await createSession("host");
+              showSessionPopup(newSessionId);
+            },
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: sessionController,
+            style: TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Sessie-ID invoeren',
+              labelStyle: TextStyle(color: Colors.white70),
+              filled: true,
+              fillColor: Colors.white12,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            child: Text("Join Sessie"),
+            style: _mainButtonStyle(),
+            onPressed: () async {
+              final enteredId = sessionController.text.trim();
+              if (enteredId.isNotEmpty) {
+                try {
+                  final doc = await FirebaseFirestore.instance
+                      .collection('walking_sessions')
+                      .doc(enteredId)
+                      .get();
+                  if (!doc.exists) throw 'Sessie niet gevonden.';
+                  await joinSession(enteredId, "buddy");
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          WalkingSession(sessionId: enteredId, userId: "buddy"),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString())),
+                  );
+                }
+              }
+            },
+          ),
+
+          const SizedBox(height: 30),
+          Text('Jouw All Time Statistieken', style: _sectionTitleStyle()),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: _cardBox(),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _alignedStat("12", "Runs"),
+                    _alignedStat("38.4 km", "Afstand"),
+                    _alignedStat("5:10", "Gem. Tempo"),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _alignedStat("9.2 km", "Langste Run"),
+                    _alignedStat("1,540", "Calorieën"),
+                    _alignedStat("6", "Buddies"),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 30),
+          Text("Recente Buddy Runs", style: _sectionTitleStyle()),
+          const SizedBox(height: 16),
+          _buddyRunCard("Joost Verhoeven", "Gisteren", "5.2 km", "28:36", "5:30/km", "5:25/km", "342 kcal", "JV"),
+          const SizedBox(height: 12),
+          _buddyRunCard("Lisa Bakker", "3 dagen geleden", "3.5 km", "19:25", "5:40/km", "5:45/km", "215 kcal", "LB"),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color(0xFF0D0D14),
+        selectedItemColor: AppColors.accentGreen,
+        unselectedItemColor: Colors.white70,
+        currentIndex: _selectedIndex,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Buddies'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Routes'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Instellingen'),
+        ],
+      ),
+    );
+  }
+
+  // -------------------- STYLES --------------------
+
+  BoxDecoration _cardBox() => BoxDecoration(
+        color: const Color(0xFF1F1F2E),
+        borderRadius: BorderRadius.circular(12),
+      );
+
+  TextStyle _sectionTitleStyle() => TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      );
+
+  TextStyle _subTitleStyle() => TextStyle(
+        color: Colors.white70,
+        fontSize: 16,
+      );
+
+  TextStyle _infoTextStyle() => TextStyle(
+        color: Colors.white,
+        fontSize: 18,
+      );
+
+  ButtonStyle _mainButtonStyle() => ElevatedButton.styleFrom(
+        backgroundColor: AppColors.accentGreen,
+        foregroundColor: Colors.black,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      );
+
+  Widget _alignedStat(String value, String label) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(value, style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(label, textAlign: TextAlign.center, style: TextStyle(color: Colors.white60, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buddyRunCard(
+    String name,
+    String date,
+    String distance,
+    String duration,
+    String myPace,
+    String buddyPace,
+    String calories,
+    String initials,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _cardBox(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.white24,
+                child: Text(initials, style: TextStyle(color: Colors.white)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Met $name", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(date, style: TextStyle(color: Colors.white60, fontSize: 13)),
+                    Text("$distance – $duration", style: TextStyle(color: Colors.white60, fontSize: 13)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.accentGreen,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text("Voltooid", style: TextStyle(color: const Color(0xFF141421), fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white24, height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _infoColumn("Jouw tempo", myPace),
+              _infoColumn("Buddy tempo", buddyPace),
+              _infoColumn("Calorieën", calories),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _infoColumn(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: Colors.white60, fontSize: 13)),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ],
+    );
   }
 }
