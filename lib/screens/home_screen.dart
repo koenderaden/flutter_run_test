@@ -44,7 +44,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // New session popup function
   void showSessionPopup(String sessionId) {
     showDialog(
       context: context,
@@ -138,7 +137,6 @@ class _HomeScreenState extends State<HomeScreen> {
             _welcomeWidget(),
             const SizedBox(height: 30),
 
-            // Updated button with new popup
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accentGreen,
@@ -152,13 +150,11 @@ class _HomeScreenState extends State<HomeScreen> {
               label: const Text('Run Together', style: TextStyle(fontSize: 18)),
               onPressed: () async {
                 String newSessionId = await createSession("host");
-                // Use the new popup function
                 showSessionPopup(newSessionId);
               },
             ),
             const SizedBox(height: 10),
 
-            // Toon en kopieer het sessie-ID
             if (sessionId.isNotEmpty)
               Column(
                 children: [
@@ -195,15 +191,22 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 30),
             _sectionTitle('Sessie Joinen'),
 
-            // Veld om een sessie te joinen
             TextField(
               controller: sessionController,
               decoration: InputDecoration(
                 labelText: 'Voer Sessie-ID in',
                 labelStyle: TextStyle(color: AppColors.textWhite),
                 filled: true,
-                fillColor: AppColors.accentBlue.withOpacity(0.2),
+                fillColor: AppColors.accentBlue, 
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.accentGreen, width: 2),
+                ),
               ),
               style: TextStyle(color: AppColors.textWhite),
             ),
@@ -244,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _welcomeWidget() => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.accentBlue.withOpacity(0.2),
+          color: AppColors.accentBlue, 
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -297,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _statisticsCard() => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.accentBlue.withOpacity(0.2),
+          color: AppColors.accentBlue,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -348,27 +351,23 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
   Future<String> createSession(String hostId) async {
-    // Genereer een 6-cijferig sessionId
     String sessionId = (100000 + Random().nextInt(900000)).toString();
-
-    // Maak een document aan met sessionId als ID
     final sessionRef = FirebaseFirestore.instance.collection('walking_sessions').doc(sessionId);
 
     await sessionRef.set({
-      'sessionId': sessionId, // Behoud de sessionId als veld in Firestore
+      'sessionId': sessionId,
       'hostId': hostId,
       'buddyId': "",
       'hostSteps': 0,
       'buddySteps': 0,
     });
 
-    print("Nieuwe sessie aangemaakt met ID: $sessionId");
     return sessionId;
   }
 
   Future<void> joinSession(String sessionId, String buddyId) async {
     await FirebaseFirestore.instance.collection('walking_sessions').doc(sessionId).update({
-      'buddyId': buddyId, // Zorg ervoor dat dit een string blijft
+      'buddyId': buddyId,
     });
   }
 }
