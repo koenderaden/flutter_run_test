@@ -40,9 +40,9 @@ class _WalkingSessionState extends State<WalkingSession> {
     'assets/audio/takeiteasy.mp3',
   ];
 
-  Stopwatch _stopwatch = Stopwatch();
-  late Timer _timer;
+  Timer? _timer;
   String _elapsedTime = "00:00";
+  DateTime? _sessionStartTime;
 
   bool _isCalling = false;
 
@@ -50,11 +50,33 @@ class _WalkingSessionState extends State<WalkingSession> {
   void initState() {
     super.initState();
     requestPermission();
-    fetchSessionData();
+    listenToSessionChanges();
   }
 
   void requestPermission() async {
     await Permission.activityRecognition.request();
+  }
+
+  void listenToSessionChanges() {
+    FirebaseFirestore.instance
+        .collection('walking_sessions')
+        .doc(widget.sessionId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) return;
+      final data = snapshot.data()!;
+
+      if (data['stepGoal'] != null && data['stepGoal'] != stepGoal) {
+        setState(() {
+          stepGoal = data['stepGoal'];
+        });
+      }
+
+      if (data['sessionStarted'] == true && !_sessionStarted) {
+        final Timestamp ts = data['startTimestamp'];
+        startSessionFromTimestamp(ts);
+      }
+    });
   }
 
   void initPedometer() {
@@ -75,7 +97,7 @@ class _WalkingSessionState extends State<WalkingSession> {
       }
     }, onError: (error) {
       setState(() {
-        _status = 'Fout: $error';
+        _status = 'Fout met stappenteller: $error';
       });
     });
   }
@@ -86,17 +108,14 @@ class _WalkingSessionState extends State<WalkingSession> {
     });
   }
 
-  Future<void> fetchSessionData() async {
-    await FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).get();
-  }
-
   void setStepGoal() {
     int? newGoal = int.tryParse(goalController.text);
     if (newGoal != null && newGoal > 0) {
-      setState(() {
-        stepGoal = newGoal;
-        goalController.clear();
-      });
+      FirebaseFirestore.instance
+          .collection('walking_sessions')
+          .doc(widget.sessionId)
+          .update({'stepGoal': newGoal});
+      goalController.clear();
     }
   }
 
@@ -106,7 +125,7 @@ class _WalkingSessionState extends State<WalkingSession> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF141421),
-          title: Text("Stapdoel Instellen", style: TextStyle(color: Colors.white)),
+          title: Text("Stapdoel instellen", style: TextStyle(color: Colors.white)),
           content: TextField(
             controller: goalController,
             keyboardType: TextInputType.number,
@@ -136,39 +155,49 @@ class _WalkingSessionState extends State<WalkingSession> {
     );
   }
 
-  void startSession() {
-    if (!_sessionStarted) {
-      initPedometer();
-      startAudioLoop();
-      _stopwatch.start();
-      _timer = Timer.periodic(Duration(seconds: 1), (_) {
-        final minutes = _stopwatch.elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
-        final seconds = _stopwatch.elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+  void startSession() async {
+    await FirebaseFirestore.instance.collection('walking_sessions').doc(widget.sessionId).update({
+      'sessionStarted': true,
+      'startTimestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  void startSessionFromTimestamp(Timestamp timestamp) {
+    _sessionStartTime = timestamp.toDate();
+
+    _timer = Timer.periodic(Duration(seconds: 1), (_) {
+      if (_sessionStartTime != null) {
+        final now = DateTime.now();
+        final elapsed = now.difference(_sessionStartTime!);
+        final minutes = elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+        final seconds = elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
         setState(() {
           _elapsedTime = "$minutes:$seconds";
         });
-      });
-      setState(() {
-        _sessionStarted = true;
-        _sessionPaused = false;
-        _status = 'Buddy Run gestart!';
-      });
-    }
+      }
+    });
+
+    setState(() {
+      _sessionStarted = true;
+      _sessionPaused = false;
+      _status = 'Sessie gestart!';
+    });
+
+    initPedometer();
+    startAudioLoop();
   }
 
   void pauseSession() {
     setState(() {
       _sessionPaused = true;
-      _stopwatch.stop();
-      _status = 'Gepauzeerd';
+      _status = 'Sessie gepauzeerd';
     });
   }
 
   void resumeSession() {
     setState(() {
       _sessionPaused = false;
-      _stopwatch.start();
-      _status = 'Hervat!';
+      _status = 'Sessie hervat';
     });
   }
 
@@ -201,8 +230,7 @@ class _WalkingSessionState extends State<WalkingSession> {
     _audioTimer?.cancel();
     _audioPlayer.dispose();
     _stepSubscription.cancel();
-    _timer.cancel();
-    _stopwatch.stop();
+    _timer?.cancel();
     super.dispose();
   }
 
@@ -234,14 +262,7 @@ class _WalkingSessionState extends State<WalkingSession> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (!_sessionStarted) ...[
-                      Text(
-                        "Buddy Run Sessie",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text("Buddy Run Sessie", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -270,51 +291,43 @@ class _WalkingSessionState extends State<WalkingSession> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "Stapdoel: $stepGoal stappen",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
+                            Text("Stapdoel: $stepGoal stappen", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                             const SizedBox(height: 6),
-                            TextButton(
-                              onPressed: openGoalSettings,
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                alignment: Alignment.centerLeft,
-                              ),
-                              child: Text(
-                                "Wijzig doel",
-                                style: TextStyle(
-                                  color: AppColors.accentGreen,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
+                            if (widget.userId == 'host')
+                              TextButton(
+                                onPressed: openGoalSettings,
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                                child: Text("Wijzig doel", style: TextStyle(color: AppColors.accentGreen, fontWeight: FontWeight.w500)),
+                              )
+                            else
+                              Text("Alleen de host kan het doel wijzigen.", style: TextStyle(color: Colors.white54, fontSize: 12)),
                           ],
                         ),
                       ),
                       const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          icon: Icon(Icons.play_arrow),
-                          label: Text("Start Buddy Run"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accentGreen,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                      if (widget.userId == 'host')
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: Icon(Icons.play_arrow),
+                            label: Text("Start Buddy Run"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.accentGreen,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
+                            onPressed: startSession,
                           ),
-                          onPressed: startSession,
+                        )
+                      else
+                        Center(
+                          child: Text(
+                            "Wacht tot de host de sessie start...",
+                            style: TextStyle(color: Colors.white54, fontSize: 14),
+                          ),
                         ),
-                      ),
                     ],
-
                     if (_sessionStarted) ...[
                       const SizedBox(height: 10),
                       Text("Duur: $_elapsedTime", style: TextStyle(color: Colors.white70)),
@@ -328,11 +341,7 @@ class _WalkingSessionState extends State<WalkingSession> {
                         children: [
                           _circleButton(Icons.pause, AppColors.accentGreen, pauseSession),
                           _circleButton(Icons.play_arrow, Colors.white24, resumeSession),
-                          _circleButton(
-                            _isCalling ? Icons.stop : Icons.phone,
-                            _isCalling ? Colors.orangeAccent : Colors.greenAccent.shade400,
-                            _toggleCallingAudio,
-                          ),
+                          _circleButton(_isCalling ? Icons.stop : Icons.phone, _isCalling ? Colors.orangeAccent : Colors.greenAccent.shade400, _toggleCallingAudio),
                         ],
                       ),
                     ],
@@ -364,8 +373,8 @@ class _WalkingSessionState extends State<WalkingSession> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _stepCount("Jij", hostSteps, Icons.person),
-                  _stepCount("Buddy", buddySteps, Icons.person_outline),
+                  _stepCount(widget.userId == 'host' ? "Jij" : "Buddy", hostSteps, Icons.person),
+                  _stepCount(widget.userId == 'buddy' ? "Jij" : "Buddy", buddySteps, Icons.person_outline),
                 ],
               ),
               const SizedBox(height: 16),
@@ -376,10 +385,7 @@ class _WalkingSessionState extends State<WalkingSession> {
                 color: AppColors.accentGreen,
               ),
               const SizedBox(height: 8),
-              Text(
-                '$totalSteps / $stepGoal stappen gezet',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
+              Text('$totalSteps / $stepGoal stappen gezet', style: TextStyle(color: Colors.white70, fontSize: 14)),
             ],
           );
         },
@@ -391,8 +397,7 @@ class _WalkingSessionState extends State<WalkingSession> {
         Icon(icon, color: AppColors.accentGreen, size: 28),
         const SizedBox(height: 6),
         Text(title, style: TextStyle(color: Colors.white, fontSize: 14)),
-        Text('$count',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        Text('$count', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -402,10 +407,7 @@ class _WalkingSessionState extends State<WalkingSession> {
           Icon(Icons.info_outline, color: AppColors.accentGreen, size: 24),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'STATUS: $_status',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
+            child: Text('STATUS: $_status', style: TextStyle(color: Colors.white70, fontSize: 14)),
           ),
         ],
       );
