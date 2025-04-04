@@ -47,6 +47,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -67,6 +68,7 @@ flutter:
     - assets/audio/comeon.mp3
     - assets/audio/halfway.mp3
     - assets/audio/takeiteasy.mp3
+    - assets/audio/calling.mp3
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

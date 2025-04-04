@@ -40,6 +40,12 @@ class _WalkingSessionState extends State<WalkingSession> {
     'assets/audio/takeiteasy.mp3',
   ];
 
+  Stopwatch _stopwatch = Stopwatch();
+  late Timer _timer;
+  String _elapsedTime = "00:00";
+
+  bool _isCalling = false;
+
   @override
   void initState() {
     super.initState();
@@ -134,6 +140,14 @@ class _WalkingSessionState extends State<WalkingSession> {
     if (!_sessionStarted) {
       initPedometer();
       startAudioLoop();
+      _stopwatch.start();
+      _timer = Timer.periodic(Duration(seconds: 1), (_) {
+        final minutes = _stopwatch.elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+        final seconds = _stopwatch.elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+        setState(() {
+          _elapsedTime = "$minutes:$seconds";
+        });
+      });
       setState(() {
         _sessionStarted = true;
         _sessionPaused = false;
@@ -145,6 +159,7 @@ class _WalkingSessionState extends State<WalkingSession> {
   void pauseSession() {
     setState(() {
       _sessionPaused = true;
+      _stopwatch.stop();
       _status = 'Gepauzeerd';
     });
   }
@@ -152,6 +167,7 @@ class _WalkingSessionState extends State<WalkingSession> {
   void resumeSession() {
     setState(() {
       _sessionPaused = false;
+      _stopwatch.start();
       _status = 'Hervat!';
     });
   }
@@ -166,126 +182,169 @@ class _WalkingSessionState extends State<WalkingSession> {
     });
   }
 
+  void _toggleCallingAudio() async {
+    if (!_isCalling) {
+      await _audioPlayer.play(AssetSource('audio/calling.mp3'));
+      setState(() {
+        _isCalling = true;
+      });
+    } else {
+      await _audioPlayer.stop();
+      setState(() {
+        _isCalling = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _audioTimer?.cancel();
     _audioPlayer.dispose();
     _stepSubscription.cancel();
+    _timer.cancel();
+    _stopwatch.stop();
     super.dispose();
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: const Color(0xFF141421),
-    body: SafeArea(
-      child: Column(
-        children: [
-          // MAP
-          ClipRRect(
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(40),
-              bottomRight: Radius.circular(40),
-            ),
-            child: Image.asset(
-              'assets/images/map.png',
-              height: 280,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
-          ),
-
-          // MAIN CONTENT
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              color: const Color(0xFF141421),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (!_sessionStarted) ...[
-                    Text(
-                      "Buddy Run Sessie",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    // AUDIO SWITCH
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text("Audiobegeleiding", style: TextStyle(color: Colors.white, fontSize: 16)),
-                        Switch(
-                          activeColor: AppColors.accentGreen,
-                          value: _audioOn,
-                          onChanged: (val) {
-                            setState(() {
-                              _audioOn = val;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // STEP GOAL
-                    Text("Stapdoel: $stepGoal stappen",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    TextButton(
-                      onPressed: openGoalSettings,
-                      child: Text("Wijzig doel", style: TextStyle(color: AppColors.accentGreen)),
-                    ),
-                    const SizedBox(height: 20),
-                    // START KNOP
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: Icon(Icons.play_arrow),
-                        label: Text("Start Buddy Run"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accentGreen,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: startSession,
-                      ),
-                    ),
-                  ],
-
-                  if (_sessionStarted) ...[
-                    const SizedBox(height: 10),
-                    // STEP DATA
-                    stepsDisplay(),
-                    const SizedBox(height: 16),
-                    _statusWidget(),
-                    const SizedBox(height: 20),
-                    // CONTROLS
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _circleButton(Icons.pause, AppColors.accentGreen, pauseSession),
-                        _circleButton(Icons.play_arrow, Colors.white24, resumeSession),
-                      ],
-                    ),
-                  ],
-                ],
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF141421),
+      body: SafeArea(
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
+              ),
+              child: Image.asset(
+                'assets/images/map.png',
+                height: 280,
+                width: double.infinity,
+                fit: BoxFit.cover,
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                color: const Color(0xFF141421),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!_sessionStarted) ...[
+                      Text(
+                        "Buddy Run Sessie",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("Audiobegeleiding", style: TextStyle(color: Colors.white, fontSize: 16)),
+                          Switch(
+                            activeColor: AppColors.accentGreen,
+                            value: _audioOn,
+                            onChanged: (val) {
+                              setState(() {
+                                _audioOn = val;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(12),
+                        margin: EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white10,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Stapdoel: $stepGoal stappen",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextButton(
+                              onPressed: openGoalSettings,
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                alignment: Alignment.centerLeft,
+                              ),
+                              child: Text(
+                                "Wijzig doel",
+                                style: TextStyle(
+                                  color: AppColors.accentGreen,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: Icon(Icons.play_arrow),
+                          label: Text("Start Buddy Run"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentGreen,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: startSession,
+                        ),
+                      ),
+                    ],
+
+                    if (_sessionStarted) ...[
+                      const SizedBox(height: 10),
+                      Text("Duur: $_elapsedTime", style: TextStyle(color: Colors.white70)),
+                      const SizedBox(height: 10),
+                      stepsDisplay(),
+                      const SizedBox(height: 16),
+                      _statusWidget(),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _circleButton(Icons.pause, AppColors.accentGreen, pauseSession),
+                          _circleButton(Icons.play_arrow, Colors.white24, resumeSession),
+                          _circleButton(
+                            _isCalling ? Icons.stop : Icons.phone,
+                            _isCalling ? Colors.orangeAccent : Colors.greenAccent.shade400,
+                            _toggleCallingAudio,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
-
-
+    );
+  }
 
   Widget stepsDisplay() => StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
