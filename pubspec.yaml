@@ -69,6 +69,7 @@ flutter:
     - assets/audio/halfway.mp3
     - assets/audio/takeiteasy.mp3
     - assets/audio/calling.mp3
+    - assets/images/google_logo.png
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

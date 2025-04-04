@@ -190,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text('Welkom bij FitQuest!', style: _sectionTitleStyle()),
           const SizedBox(height: 6),
           Text(
-            'FitQuest helpt jou om samen met een buddy te wandelen of rennen. Vergelijk stappen, stimuleer elkaar en maak samen progressie!',
+            'FitQuest helpt je om samen met een buddy te wandelen of rennen. Vergelijk stappen, motiveer elkaar en maak samen progressie!',
             style: TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 20),
@@ -211,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
           ElevatedButton.icon(
             icon: Icon(Icons.directions_run),
-            label: Text("Run Together"),
+            label: Text("Samen Rennen"),
             style: _mainButtonStyle(),
             onPressed: () async {
               String newSessionId = await createSession("host");
@@ -223,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
             controller: sessionController,
             style: TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              labelText: 'Sessie-ID invoeren',
+              labelText: 'Voer sessie-ID in',
               labelStyle: TextStyle(color: Colors.white70),
               filled: true,
               fillColor: Colors.white12,
@@ -232,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 10),
           ElevatedButton(
-            child: Text("Join Sessie"),
+            child: Text("Sessie joinen"),
             style: _mainButtonStyle(),
             onPressed: () async {
               final enteredId = sessionController.text.trim();
@@ -259,9 +259,8 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
           ),
-
           const SizedBox(height: 30),
-          Text('Jouw All Time Statistieken', style: _sectionTitleStyle()),
+          Text('Jouw All-Time Statistieken', style: _sectionTitleStyle()),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(20),
@@ -273,22 +272,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _alignedStat("12", "Runs"),
                     _alignedStat("38.4 km", "Afstand"),
-                    _alignedStat("5:10", "Gem. Tempo"),
+                    _alignedStat("5:10", "Gem. tempo"),
                   ],
                 ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _alignedStat("9.2 km", "Langste Run"),
-                    _alignedStat("1,540", "Calorieën"),
+                    _alignedStat("9.2 km", "Langste run"),
+                    _alignedStat("1.540", "Calorieën"),
                     _alignedStat("6", "Buddies"),
                   ],
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: 30),
           Text("Recente Buddy Runs", style: _sectionTitleStyle()),
           const SizedBox(height: 16),

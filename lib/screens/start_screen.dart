@@ -23,7 +23,6 @@ class StartScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 🔁 Hier vervangen we de tekst door het logo
                 Image.asset(
                   'assets/images/fitquest_logo.png',
                   height: 100,
@@ -48,7 +47,7 @@ class StartScreen extends StatelessWidget {
                         );
                       },
                       child: const Text(
-                        'Get Started',
+                        'Begin',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -58,7 +57,7 @@ class StartScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Already our user?',
+                      'Al een account?',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -76,7 +75,7 @@ class StartScreen extends StatelessWidget {
                         );
                       },
                       child: const Text(
-                        'Continue with your account >',
+                        'Ga verder met je account >',
                         style: TextStyle(
                           color: AppColors.accentGreen,
                           fontSize: 14,
