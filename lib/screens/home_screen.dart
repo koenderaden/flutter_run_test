@@ -95,10 +95,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                   child: Row(
                     children: [
                       Expanded(
